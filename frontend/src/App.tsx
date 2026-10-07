@@ -86,6 +86,9 @@ function App() {
   const [inScopeFilter, setInScopeFilter] =
     useState("All");
 
+  const [showArchived, setShowArchived] =
+  useState(false);
+
   const filteredTasks = useMemo(() => {
     const search =
       searchText
@@ -116,11 +119,17 @@ function App() {
         inScopeFilter === "All" ||
         task.InScope === inScopeFilter;
 
+      const matchesArchived =
+        showArchived
+          ? task.Archived === true
+          : task.Archived !== true;
+
       return (
         matchesSearch &&
         matchesOwner &&
         matchesStatus &&
-        matchesInScope
+        matchesInScope &&
+        matchesArchived
       );
     });
   }, [
@@ -129,6 +138,7 @@ function App() {
     ownerFilter,
     statusFilter,
     inScopeFilter,
+    showArchived,
   ]);
 
   async function loadData() {
@@ -139,7 +149,11 @@ function App() {
       const [membersResponse, tasksResponse] =
         await Promise.all([
           fetch("/api/members"),
-          fetch("/api/tasks"),
+          fetch(
+                showArchived
+                  ? "/api/tasks?includeArchived=true"
+                  : "/api/tasks"
+              ),
         ]);
 
       if (!membersResponse.ok) {
@@ -174,8 +188,8 @@ function App() {
   }
 
   useEffect(() => {
-    loadData();
-  }, []);
+  loadData();
+  }, [showArchived]);
 
   async function loadTaskDetail(taskId: string) {
     try {
@@ -339,6 +353,57 @@ function App() {
     }
   }
 
+  async function handleArchiveChange(
+    task: Task,
+    archived: boolean
+  ) {
+    try {
+      setError("");
+
+      const response = await fetch(
+        `/api/tasks/${task.TaskId}/archive`,
+        {
+          method: "PATCH",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "If-Match":
+              task.etag,
+          },
+
+          body: JSON.stringify({
+            archived,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Archive update HTTP ${response.status}`
+        );
+      }
+
+      await loadData();
+
+      if (
+        selectedTaskId === task.TaskId
+      ) {
+        await loadTaskDetail(
+          task.TaskId
+        );
+      }
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to change archive state"
+      );
+    }
+  }
+
   async function handleOwnerChange(
     task: Task,
     ownerId: string
@@ -446,9 +511,9 @@ function App() {
       return;
     }
 
-    if (noteDraft.length > 4000) {
+    if (noteDraft.length > 1000) {
       setError(
-        "Note must be at most 4000 characters."
+        "Note must be at most 1000 characters."
       );
       return;
     }
@@ -584,12 +649,32 @@ function App() {
     const cleanNote =
       note.replace(/\s+/g, " ").trim();
 
-    if (cleanNote.length <= 70) {
+    if (cleanNote.length <= 60) {
       return cleanNote;
     }
 
-    return `${cleanNote.slice(0, 70)}...`;
+    return `${cleanNote.slice(0, 60)}...`;
   }
+
+  const activeCount =
+    tasks.filter(
+      (task) =>
+        !task.Archived &&
+        task.Status !== "Done"
+    ).length;
+
+  const doneCount =
+    tasks.filter(
+      (task) =>
+        !task.Archived &&
+        task.Status === "Done"
+    ).length;
+
+  const archivedCount =
+    tasks.filter(
+      (task) =>
+        task.Archived
+    ).length;
 
   if (selectedTaskId) {
     return (
@@ -668,6 +753,20 @@ function App() {
                   }
                 </span>
               </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleArchiveChange(
+                    selectedTask,
+                    !selectedTask.Archived
+                  )
+                }
+              >
+                {selectedTask.Archived
+                  ? "Restore Task"
+                  : "Archive Task"}
+              </button>
 
               <div className="detail-grid">
                 <div className="detail-item">
@@ -765,13 +864,13 @@ function App() {
 
                 <span className="character-count">
                   {noteDraft.length}
-                  /4000
+                  /1000
                 </span>
               </div>
 
               <textarea
                 value={noteDraft}
-                maxLength={4000}
+                maxLength={1000}
                 onChange={(event) =>
                   setNoteDraft(
                     event.target.value
@@ -945,6 +1044,29 @@ function App() {
 
       {!loading && (
         <>
+          <section className="summary-grid">
+            <div className="summary-card">
+              <div className="summary-number">
+                {activeCount}
+              </div>
+              <span>Active</span>
+            </div>
+
+            <div className="summary-card">
+              <div className="summary-number">
+                {doneCount}
+              </div>
+              <span>Done</span>
+            </div>
+
+            <div className="summary-card">
+              <div className="summary-number">
+                {archivedCount}
+              </div>
+              <span>Archived</span>
+            </div>
+          </section>
+
           <section className="member-grid">
             {[...members]
               .sort(
@@ -1188,6 +1310,30 @@ function App() {
                 </select>
               </div>
 
+              <div className="filter-field">
+                <label htmlFor="archive-filter">
+                  View
+                </label>
+
+                <select
+                  id="archive-filter"
+                  value={showArchived ? "Archived" : "Active"}
+                  onChange={(event) =>
+                    setShowArchived(
+                      event.target.value === "Archived"
+                    )
+                  }
+                >
+                  <option value="Active">
+                    Active
+                  </option>
+
+                  <option value="Archived">
+                    Archived
+                  </option>
+                </select>
+              </div>
+
               <button
                 type="button"
                 className="clear-filters-button"
@@ -1249,6 +1395,7 @@ function App() {
                               value={
                                 task.OwnerId
                               }
+                              disabled={task.Archived}
                               onChange={(
                                 event
                               ) =>
@@ -1290,6 +1437,7 @@ function App() {
                               value={
                                 task.Status
                               }
+                              disabled={task.Archived}
                               onChange={(
                                 event
                               ) =>
@@ -1321,6 +1469,13 @@ function App() {
                                 title={
                                   task.Note
                                 }
+                                style={{
+                                  display: "block",
+                                  maxWidth: "240px",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
                               >
                                 {getNotePreview(
                                   task.Note
@@ -1338,6 +1493,7 @@ function App() {
                               value={
                                 task.InScope
                               }
+                              disabled={task.Archived}
                               onChange={(
                                 event
                               ) =>

@@ -97,9 +97,12 @@ export async function tasks(
                     ) as TaskEntity[]
                 );
 
-        const tasks =
-            rawTasks.map((task) => ({
+        const includeArchived =
+    request.query.get("includeArchived") === "true";
 
+        const tasks =
+            rawTasks
+                .map((task) => ({
                 ...task,
 
                 Description:
@@ -126,7 +129,11 @@ export async function tasks(
 
                 Archived:
                     task.Archived ?? false
-            }));
+            }))
+            .filter((task) =>
+                includeArchived ||
+                task.Archived !== true
+        );
 
         return {
             status: 200,

@@ -83,12 +83,12 @@ export async function createTask(
 
     if (
         typeof note !== "string" ||
-        note.length > 4000
+        note.length > 1000
     ) {
         return {
             status: 400,
             jsonBody: {
-                error: "Note must be a string of at most 4000 characters."
+                error: "Note must be a string of at most 1000 characters."
             }
         };
     }

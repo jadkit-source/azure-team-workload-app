@@ -92,12 +92,12 @@ export async function changeNote(
         typeof body !== "object" ||
         !("note" in body) ||
         typeof body.note !== "string" ||
-        body.note.length > 4000
+        body.note.length > 1000
     ) {
         return {
             status: 400,
             jsonBody: {
-                error: "Note must be a string of at most 4000 characters."
+                error: "Note must be a string of at most 1000 characters."
             }
         };
     }
