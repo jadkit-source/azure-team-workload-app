@@ -3,3 +3,9 @@ node_modules/
 dist/
 local.settings.json
 *.log
+# Azurite local storage
+.azurite/
+AzuriteConfig
+__azurite_db_*.json
+__blobstorage__/
+__queuestorage__/
