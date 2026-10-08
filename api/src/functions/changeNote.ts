@@ -1,345 +1,161 @@
 import {
-    app,
-    HttpRequest,
-    HttpResponseInit,
-    InvocationContext
+    app, HttpRequest, HttpResponseInit, InvocationContext
 } from "@azure/functions";
-
-import {
-    TableClient,
-    TableTransaction
-} from "@azure/data-tables";
-
+import { TableClient, TableTransaction } from "@azure/data-tables";
 import { randomUUID } from "node:crypto";
 
 interface TaskEntity {
     partitionKey: string;
     rowKey: string;
-    etag?: string;
-
     EntityType?: string;
     TaskId?: string;
-
     Title?: string;
     Description?: string;
     Note?: string;
-
     OwnerId?: string;
     Status?: string;
     Priority?: string;
     InScope?: string;
-
     Archived?: boolean;
-
+    Deleting?: boolean;
     CreatedBy?: string;
     CreatedAt?: string;
-
     ModifiedBy?: string;
     ModifiedAt?: string;
-
-    timestamp?: string;
 }
 
 export async function changeNote(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const reply = (status: number, error: string): HttpResponseInit =>
+        ({ status, jsonBody: { error } });
 
-    const connection =
-        process.env.TABLES_CONNECTION_STRING;
+    const connection = process.env.TABLES_CONNECTION_STRING;
 
-    if (
-        connection !==
-        "UseDevelopmentStorage=true"
-    ) {
-        return {
-            status: 503,
-            jsonBody: {
-                error: "Local development only."
-            }
-        };
+    if (connection !== "UseDevelopmentStorage=true") {
+        return reply(503, "Local development only.");
     }
 
     const taskId = request.params.id;
 
-    if (
-        !taskId ||
-        !/^[0-9a-f-]{36}$/i.test(taskId)
-    ) {
-        return {
-            status: 400,
-            jsonBody: {
-                error: "Invalid task ID."
-            }
-        };
+    if (!taskId || !/^[0-9a-f-]{36}$/i.test(taskId)) {
+        return reply(400, "Invalid task ID.");
     }
 
     let body: unknown;
-
     try {
         body = await request.json();
     } catch {
-        return {
-            status: 400,
-            jsonBody: {
-                error: "Request must contain valid JSON."
-            }
-        };
+        return reply(400, "Request must contain valid JSON.");
     }
 
     if (
-        !body ||
-        typeof body !== "object" ||
-        !("note" in body) ||
-        typeof body.note !== "string" ||
+        !body || typeof body !== "object" ||
+        !("note" in body) || typeof body.note !== "string" ||
         body.note.length > 1000
     ) {
-        return {
-            status: 400,
-            jsonBody: {
-                error: "Note must be a string of at most 1000 characters."
-            }
-        };
+        return reply(
+            400,
+            "Note must be a string of at most 1000 characters."
+        );
     }
 
     const newNote = body.note.trim();
-
-    const now = new Date().toISOString();
-
-    // Temporary local identity.
-    const actor = "local-developer";
+    const partition = "team:default";
 
     try {
+        const client = TableClient.fromConnectionString(connection, "WorkItems");
+        const task = await client.getEntity<TaskEntity>(
+            partition,
+            `task:${taskId}`
+        );
 
-        const client =
-            TableClient.fromConnectionString(
-                connection,
-                "WorkItems"
-            );
-
-        const existingTask =
-            await client.getEntity<TaskEntity>(
-                "team:default",
-                `task:${taskId}`
-            );
-
-        if (
-            existingTask.EntityType !== "Task"
-        ) {
-            return {
-                status: 404,
-                jsonBody: {
-                    error: "Task not found."
-                }
-            };
+        if (task.EntityType !== "Task") {
+            return reply(404, "Task not found.");
         }
 
-        const oldNote =
-            existingTask.Note ?? "";
+        if (task.Deleting === true) {
+            return reply(409, "Task deletion is in progress.");
+        }
+
+        const oldNote = task.Note ?? "";
 
         if (oldNote === newNote) {
             return {
                 status: 200,
-                jsonBody: {
-                    task: existingTask,
-                    changed: false
-                }
+                jsonBody: { task, changed: false }
             };
         }
 
-        const updatedTask = {
-            partitionKey:
-                existingTask.partitionKey,
+        const now = new Date().toISOString();
+        const actor = "local-developer";
+        const transaction = new TableTransaction();
 
-            rowKey:
-                existingTask.rowKey,
+        transaction.updateEntity({
+            partitionKey: partition,
+            rowKey: `task:${taskId}`,
+            Note: newNote,
+            ModifiedBy: actor,
+            ModifiedAt: now
+        }, "Merge", { etag: task.etag });
 
-            EntityType:
-                existingTask.EntityType,
+        transaction.createEntity({
+            partitionKey: partition,
+            rowKey: `event:${taskId}:${randomUUID()}`,
+            EntityType: "Event",
+            TaskId: taskId,
+            EventType: "NoteChanged",
+            ActorMemberId: actor,
+            OwnerIdAtEvent: task.OwnerId ?? "",
+            OccurredAtUtc: now,
+            ChangesJson: JSON.stringify({
+                note: {
+                    oldValue: oldNote,
+                    newValue: newNote
+                }
+            })
+        });
 
-            TaskId:
-                existingTask.TaskId,
+        await client.submitTransaction(transaction.actions);
 
-            Title:
-                existingTask.Title ?? "",
-
-            Description:
-                existingTask.Description ?? "",
-
-            Note:
-                newNote,
-
-            OwnerId:
-                existingTask.OwnerId ?? "",
-
-            Status:
-                existingTask.Status ?? "Open",
-
-            Priority:
-                existingTask.Priority ?? "Normal",
-
-            InScope:
-                existingTask.InScope ?? "Grey",
-
-            Archived:
-                existingTask.Archived ?? false,
-
-            CreatedBy:
-                existingTask.CreatedBy ?? "",
-
-            CreatedAt:
-                existingTask.CreatedAt ?? "",
-
-            ModifiedBy:
-                actor,
-
-            ModifiedAt:
-                now
-        };
-
-        const history = {
-            partitionKey:
-                "team:default",
-
-            rowKey:
-                `event:${taskId}:${randomUUID()}`,
-
-            EntityType:
-                "Event",
-
-            TaskId:
-                taskId,
-
-            EventType:
-                "NoteChanged",
-
-            ActorMemberId:
-                actor,
-
-            OwnerIdAtEvent:
-                existingTask.OwnerId ?? "",
-
-            OccurredAtUtc:
-                now,
-
-            ChangesJson:
-                JSON.stringify({
-                    note: {
-                        oldValue:
-                            oldNote,
-
-                        newValue:
-                            newNote
-                    }
-                })
-        };
-
-        const transaction =
-            new TableTransaction();
-
-        /*
-         * updateEntity with "Merge" changes only the supplied
-         * properties and keeps the other task properties.
-         *
-         * The ETag prevents silently overwriting another user's
-         * update if the task changed after we read it.
-         */
-        transaction.updateEntity(
-            updatedTask,
-            "Merge",
-            {
-                etag:
-                    existingTask.etag
-            }
+        const savedTask = await client.getEntity<TaskEntity>(
+            partition,
+            `task:${taskId}`
         );
-
-        transaction.createEntity(
-            history
-        );
-
-        await client.submitTransaction(
-            transaction.actions
-        );
-
-        const savedTask =
-            await client.getEntity<TaskEntity>(
-                "team:default",
-                `task:${taskId}`
-            );
 
         return {
             status: 200,
             jsonBody: {
                 task: {
                     ...savedTask,
-
-                    Description:
-                        savedTask.Description ?? "",
-
-                    Note:
-                        savedTask.Note ?? "",
-
-                    OwnerId:
-                        savedTask.OwnerId ?? "",
-
-                    Status:
-                        savedTask.Status ?? "Open",
-
-                    Priority:
-                        savedTask.Priority ?? "Normal",
-
-                    InScope:
-                        savedTask.InScope ?? "Grey",
-
-                    Archived:
-                        savedTask.Archived ?? false
+                    Description: savedTask.Description ?? "",
+                    Note: savedTask.Note ?? "",
+                    OwnerId: savedTask.OwnerId ?? "",
+                    Status: savedTask.Status ?? "Open",
+                    Priority: savedTask.Priority ?? "Normal",
+                    InScope: savedTask.InScope ?? "Grey",
+                    Archived: savedTask.Archived ?? false
                 },
-
                 changed: true
             }
         };
-
     } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
 
-        const statusCode =
-            (error as {
-                statusCode?: number
-            }).statusCode;
-
-        if (statusCode === 404) {
-            return {
-                status: 404,
-                jsonBody: {
-                    error: "Task not found."
-                }
-            };
+        if (status === 404) {
+            return reply(404, "Task not found.");
+        }
+        if (status === 409 || status === 412) {
+            return reply(
+                409,
+                "The task was modified by another request. " +
+                "Reload the task and try again."
+            );
         }
 
-        if (
-            statusCode === 409 ||
-            statusCode === 412
-        ) {
-            return {
-                status: 409,
-                jsonBody: {
-                    error:
-                        "The task was modified by another request. Reload the task and try again."
-                }
-            };
-        }
-
-        context.error(
-            "Failed to update task note",
-            error
-        );
-
-        return {
-            status: 500,
-            jsonBody: {
-                error:
-                    "Unable to update task note."
-            }
-        };
+        context.error("Failed to update task note", error);
+        return reply(500, "Unable to update task note.");
     }
 }
 

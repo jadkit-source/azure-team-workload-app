@@ -1,4 +1,6 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import {
+    app, HttpRequest, HttpResponseInit, InvocationContext
+} from "@azure/functions";
 import { TableClient, TableTransaction } from "@azure/data-tables";
 import { randomUUID } from "node:crypto";
 
@@ -6,10 +8,8 @@ export async function changeOwner(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const reply = (status: number, error: string): HttpResponseInit => ({
-        status,
-        jsonBody: { error }
-    });
+    const reply = (status: number, error: string): HttpResponseInit =>
+        ({ status, jsonBody: { error } });
 
     const connection = process.env.TABLES_CONNECTION_STRING;
 
@@ -18,19 +18,17 @@ export async function changeOwner(
     }
 
     const taskId = request.params.id;
+    const etag = request.headers.get("if-match");
 
     if (!taskId || !/^[0-9a-f-]{36}$/i.test(taskId)) {
         return reply(400, "Invalid task ID.");
     }
-
-    const etag = request.headers.get("if-match");
 
     if (!etag || etag.trim() === "*") {
         return reply(400, "A specific task ETag is required in If-Match.");
     }
 
     let body: unknown;
-
     try {
         body = await request.json();
     } catch {
@@ -38,14 +36,15 @@ export async function changeOwner(
     }
 
     if (
-        !body ||
-        typeof body !== "object" ||
-        !("ownerId" in body) ||
-        typeof body.ownerId !== "string" ||
+        !body || typeof body !== "object" ||
+        !("ownerId" in body) || typeof body.ownerId !== "string" ||
         (body.ownerId !== "" &&
             !/^[a-zA-Z0-9-]{1,64}$/.test(body.ownerId))
     ) {
-        return reply(400, "Provide a valid ownerId, or an empty string for Unassigned.");
+        return reply(
+            400,
+            "Provide a valid ownerId, or an empty string for Unassigned."
+        );
     }
 
     const ownerId = body.ownerId;
@@ -54,8 +53,11 @@ export async function changeOwner(
     try {
         const tasks = TableClient.fromConnectionString(connection, "WorkItems");
         const members = TableClient.fromConnectionString(connection, "Members");
-
         const task = await tasks.getEntity(partition, `task:${taskId}`);
+
+        if (task.Deleting === true) {
+            return reply(409, "Task deletion is in progress.");
+        }
 
         if (task.etag !== etag) {
             return reply(409, "Task changed. Refresh it and try again.");
@@ -73,7 +75,9 @@ export async function changeOwner(
                     return reply(400, "Selected member is disabled.");
                 }
             } catch (error) {
-                if ((error as { statusCode?: number }).statusCode === 404) {
+                if (
+                    (error as { statusCode?: number }).statusCode === 404
+                ) {
                     return reply(400, "Selected member does not exist.");
                 }
                 throw error;
@@ -116,7 +120,13 @@ export async function changeOwner(
 
         return {
             status: 200,
-            jsonBody: { changed: true, taskId, ownerId, changedBy: actor, time: now }
+            jsonBody: {
+                changed: true,
+                taskId,
+                ownerId,
+                changedBy: actor,
+                time: now
+            }
         };
     } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
@@ -124,7 +134,6 @@ export async function changeOwner(
         if (status === 412) {
             return reply(409, "Task changed. Refresh it and try again.");
         }
-
         if (status === 404) {
             return reply(404, "Task or required table not found.");
         }
