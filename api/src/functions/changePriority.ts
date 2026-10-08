@@ -1,31 +1,17 @@
 import {
-    app,
-    HttpRequest,
-    HttpResponseInit,
-    InvocationContext
+    app, HttpRequest, HttpResponseInit, InvocationContext
 } from "@azure/functions";
-
-import {
-    TableClient,
-    TableTransaction
-} from "@azure/data-tables";
-
+import { TableClient, TableTransaction } from "@azure/data-tables";
 import { randomUUID } from "node:crypto";
 
 export async function changePriority(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const reply = (
-        status: number,
-        error: string
-    ): HttpResponseInit => ({
-        status,
-        jsonBody: { error }
-    });
+    const reply = (status: number, error: string): HttpResponseInit =>
+        ({ status, jsonBody: { error } });
 
-    const connection =
-        process.env.TABLES_CONNECTION_STRING;
+    const connection = process.env.TABLES_CONNECTION_STRING;
 
     if (connection !== "UseDevelopmentStorage=true") {
         return reply(503, "Local development only.");
@@ -34,39 +20,25 @@ export async function changePriority(
     const taskId = request.params.id;
     const etag = request.headers.get("if-match");
 
-    if (
-        !taskId ||
-        !/^[0-9a-f-]{36}$/i.test(taskId)
-    ) {
+    if (!taskId || !/^[0-9a-f-]{36}$/i.test(taskId)) {
         return reply(400, "Invalid task ID.");
     }
 
     if (!etag || etag.trim() === "*") {
-        return reply(
-            400,
-            "A specific task ETag is required in If-Match."
-        );
+        return reply(400, "A specific task ETag is required in If-Match.");
     }
 
     let body: unknown;
-
     try {
         body = await request.json();
     } catch {
-        return reply(
-            400,
-            "Request must contain valid JSON."
-        );
+        return reply(400, "Request must contain valid JSON.");
     }
 
     if (
-        !body ||
-        typeof body !== "object" ||
-        !("priority" in body) ||
-        typeof body.priority !== "string" ||
-        !["Low", "Normal", "High", "Critical"].includes(
-            body.priority
-        )
+        !body || typeof body !== "object" ||
+        !("priority" in body) || typeof body.priority !== "string" ||
+        !["Low", "Normal", "High", "Critical"].includes(body.priority)
     ) {
         return reply(
             400,
@@ -78,71 +50,48 @@ export async function changePriority(
     const partition = "team:default";
 
     try {
-        const client =
-            TableClient.fromConnectionString(
-                connection,
-                "WorkItems"
-            );
+        const client = TableClient.fromConnectionString(connection, "WorkItems");
+        const task = await client.getEntity(partition, `task:${taskId}`);
 
-        const task = await client.getEntity(
-            partition,
-            `task:${taskId}`
-        );
+        if (task.Deleting === true) {
+            return reply(409, "Task deletion is in progress.");
+        }
 
         if (task.etag !== etag) {
-            return reply(
-                409,
-                "Task changed. Refresh it and try again."
-            );
+            return reply(409, "Task changed. Refresh it and try again.");
         }
 
         if (task.Archived === true) {
-            return reply(
-                400,
-                "Archived tasks cannot be updated."
-            );
+            return reply(400, "Archived tasks cannot be updated.");
         }
 
         const oldPriority =
-            typeof task.Priority === "string"
-                ? task.Priority
-                : "Normal";
+            typeof task.Priority === "string" ? task.Priority : "Normal";
 
         if (oldPriority === newPriority) {
-            return {
-                status: 200,
-                jsonBody: { changed: false }
-            };
+            return { status: 200, jsonBody: { changed: false } };
         }
 
         const now = new Date().toISOString();
         const actor = "local-developer";
+        const transaction = new TableTransaction();
 
-        const transaction =
-            new TableTransaction();
-
-        transaction.updateEntity(
-            {
-                partitionKey: partition,
-                rowKey: `task:${taskId}`,
-                Priority: newPriority,
-                ModifiedBy: actor,
-                ModifiedAt: now
-            },
-            "Merge",
-            { etag }
-        );
+        transaction.updateEntity({
+            partitionKey: partition,
+            rowKey: `task:${taskId}`,
+            Priority: newPriority,
+            ModifiedBy: actor,
+            ModifiedAt: now
+        }, "Merge", { etag });
 
         transaction.createEntity({
             partitionKey: partition,
-            rowKey:
-                `event:${taskId}:${randomUUID()}`,
+            rowKey: `event:${taskId}:${randomUUID()}`,
             EntityType: "Event",
             TaskId: taskId,
             EventType: "PriorityChanged",
             ActorMemberId: actor,
-            OwnerIdAtEvent:
-                String(task.OwnerId || ""),
+            OwnerIdAtEvent: String(task.OwnerId || ""),
             OccurredAtUtc: now,
             ChangesJson: JSON.stringify({
                 priority: {
@@ -152,9 +101,7 @@ export async function changePriority(
             })
         });
 
-        await client.submitTransaction(
-            transaction.actions
-        );
+        await client.submitTransaction(transaction.actions);
 
         return {
             status: 200,
@@ -167,33 +114,17 @@ export async function changePriority(
             }
         };
     } catch (error) {
-        const status =
-            (
-                error as {
-                    statusCode?: number
-                }
-            ).statusCode;
+        const status = (error as { statusCode?: number }).statusCode;
 
         if (status === 412) {
-            return reply(
-                409,
-                "Task changed. Refresh it and try again."
-            );
+            return reply(409, "Task changed. Refresh it and try again.");
         }
-
         if (status === 404) {
             return reply(404, "Task not found.");
         }
 
-        context.error(
-            "Priority change failed",
-            error
-        );
-
-        return reply(
-            500,
-            "Unable to change priority."
-        );
+        context.error("Priority change failed", error);
+        return reply(500, "Unable to change priority.");
     }
 }
 

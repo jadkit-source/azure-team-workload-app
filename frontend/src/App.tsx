@@ -1,3 +1,4 @@
+import Day5Controls from "./Day5Controls";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import "./App.css";
@@ -851,6 +852,19 @@ function App() {
               </div>
             </section>
 
+            <Day5Controls
+              key={selectedTask.TaskId}
+              task={selectedTask}
+              onChanged={async () => {
+                await loadTaskDetail(selectedTask.TaskId);
+                await loadData();
+              }}
+              onDeleted={async () => {
+                closeTaskDetail();
+                await loadData();
+              }}
+            />
+
             <section className="note-section">
               <div className="section-heading">
                 <div>
@@ -1102,6 +1116,8 @@ function App() {
                 </div>
               ))}
           </section>
+
+          <Day5Controls onChanged={loadData} />
 
           <section className="create-section">
             <h2>

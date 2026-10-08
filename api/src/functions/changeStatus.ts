@@ -1,4 +1,6 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import {
+    app, HttpRequest, HttpResponseInit, InvocationContext
+} from "@azure/functions";
 import { TableClient, TableTransaction } from "@azure/data-tables";
 import { randomUUID } from "node:crypto";
 
@@ -6,10 +8,8 @@ export async function changeStatus(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    const reply = (status: number, error: string): HttpResponseInit => ({
-        status,
-        jsonBody: { error }
-    });
+    const reply = (status: number, error: string): HttpResponseInit =>
+        ({ status, jsonBody: { error } });
 
     const connection = process.env.TABLES_CONNECTION_STRING;
 
@@ -29,7 +29,6 @@ export async function changeStatus(
     }
 
     let body: unknown;
-
     try {
         body = await request.json();
     } catch {
@@ -37,10 +36,8 @@ export async function changeStatus(
     }
 
     if (
-        !body ||
-        typeof body !== "object" ||
-        !("status" in body) ||
-        typeof body.status !== "string" ||
+        !body || typeof body !== "object" ||
+        !("status" in body) || typeof body.status !== "string" ||
         !["Open", "In Progress", "Done"].includes(body.status)
     ) {
         return reply(400, "Status must be Open, In Progress or Done.");
@@ -52,6 +49,10 @@ export async function changeStatus(
     try {
         const client = TableClient.fromConnectionString(connection, "WorkItems");
         const task = await client.getEntity(partition, `task:${taskId}`);
+
+        if (task.Deleting === true) {
+            return reply(409, "Task deletion is in progress.");
+        }
 
         if (task.etag !== etag) {
             return reply(409, "Task changed. Refresh it and try again.");
@@ -68,11 +69,12 @@ export async function changeStatus(
         const now = new Date().toISOString();
         const actor = "local-developer";
 
-        const eventType = newStatus === "Done"
-            ? "TaskCompleted"
-            : task.Status === "Done"
-                ? "TaskReopened"
-                : "StatusChanged";
+        const eventType =
+            newStatus === "Done"
+                ? "TaskCompleted"
+                : task.Status === "Done"
+                    ? "TaskReopened"
+                    : "StatusChanged";
 
         const transaction = new TableTransaction();
 
@@ -121,7 +123,6 @@ export async function changeStatus(
         if (status === 412) {
             return reply(409, "Task changed. Refresh it and try again.");
         }
-
         if (status === 404) {
             return reply(404, "Task or required table not found.");
         }
