@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -232,12 +233,12 @@ app.http("listAttachments", {
     route: "tasks/{id}/attachments",
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: listAttachments
+    handler: withAuthentication(listAttachments)
 });
 
 app.http("downloadAttachment", {
     route: "tasks/{id}/attachments/{attachmentId}",
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: downloadAttachment
+    handler: withAuthentication(downloadAttachment)
 });

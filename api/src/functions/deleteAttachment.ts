@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -211,5 +212,5 @@ app.http("deleteAttachment", {
     route: "tasks/{id}/attachments/{attachmentId}",
     methods: ["DELETE"],
     authLevel: "anonymous",
-    handler: deleteAttachment
+    handler: withAuthentication(deleteAttachment)
 });

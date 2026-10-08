@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -300,5 +301,5 @@ app.http("uploadAttachment", {
     route: "tasks/{id}/attachments",
     methods: ["POST"],
     authLevel: "anonymous",
-    handler: uploadAttachment
+    handler: withAuthentication(uploadAttachment)
 });

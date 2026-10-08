@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -245,5 +246,5 @@ app.http("deleteTask", {
     route: "tasks/{id}",
     methods: ["DELETE"],
     authLevel: "anonymous",
-    handler: deleteTask
+    handler: withAuthentication(deleteTask)
 });

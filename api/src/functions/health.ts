@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
 export async function health(
@@ -17,5 +18,5 @@ export async function health(
 app.http("health", {
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: health
+    handler: withAuthentication(health)
 });

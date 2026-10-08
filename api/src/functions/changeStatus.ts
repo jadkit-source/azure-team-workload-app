@@ -1,3 +1,4 @@
+import { getAuthenticatedActor, withAuthentication } from "../shared/auth";
 import {
     app, HttpRequest, HttpResponseInit, InvocationContext
 } from "@azure/functions";
@@ -67,7 +68,7 @@ export async function changeStatus(
         }
 
         const now = new Date().toISOString();
-        const actor = "local-developer";
+        const actor = getAuthenticatedActor(request).id;
 
         const eventType =
             newStatus === "Done"
@@ -136,5 +137,5 @@ app.http("changeStatus", {
     route: "tasks/{id}/status",
     methods: ["PATCH"],
     authLevel: "anonymous",
-    handler: changeStatus
+    handler: withAuthentication(changeStatus)
 });

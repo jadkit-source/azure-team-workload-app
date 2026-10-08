@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
 
@@ -86,5 +87,5 @@ app.http("taskHistory", {
     route: "tasks/{id}/history",
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: taskHistory
+    handler: withAuthentication(taskHistory)
 });

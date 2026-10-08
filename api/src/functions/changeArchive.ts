@@ -1,3 +1,4 @@
+import { getAuthenticatedActor, withAuthentication } from "../shared/auth";
 import {
     app, HttpRequest, HttpResponseInit, InvocationContext
 } from "@azure/functions";
@@ -64,7 +65,7 @@ export async function changeArchive(
         }
 
         const now = new Date().toISOString();
-        const actor = "local-developer";
+        const actor = getAuthenticatedActor(request).id;
         const transaction = new TableTransaction();
 
         transaction.updateEntity({
@@ -125,5 +126,5 @@ app.http("changeArchive", {
     route: "tasks/{id}/archive",
     methods: ["PATCH"],
     authLevel: "anonymous",
-    handler: changeArchive
+    handler: withAuthentication(changeArchive)
 });

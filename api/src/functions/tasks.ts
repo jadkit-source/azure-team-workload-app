@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -170,5 +171,5 @@ export async function tasks(
 app.http("tasks", {
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: tasks
+    handler: withAuthentication(tasks)
 });

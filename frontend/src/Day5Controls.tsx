@@ -1,3 +1,4 @@
+import { useAuth } from "./AuthGate";
 import { useEffect, useState } from "react";
 
 type Task = {
@@ -70,7 +71,7 @@ export default function Day5Controls({
   onChanged,
   onDeleted,
 }: Props) {
-  const [isAdmin, setIsAdmin] = useState(false);
+
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [inputKey, setInputKey] = useState(0);
@@ -84,20 +85,15 @@ export default function Day5Controls({
   const [preview, setPreview] = useState<PurgePreview | null>(null);
   const [confirmed, setConfirmed] = useState(false);
 
-  // Local simulation only. Day 6 replaces this with signed-in identity.
-  const localDevelopment = import.meta.env.DEV;
-  const actorId = "local-developer";
+  const { user } = useAuth();
+  const actorId = user.userId;
+  const isAdmin = user.userRoles.includes("admin");
 
   const taskId = task?.TaskId;
   const taskEtag = task?.etag;
 
-  const headers: Record<string, string> = localDevelopment
-    ? {
-        "x-local-user": actorId,
-        "x-local-admin": String(isAdmin),
-      }
-    : {};
-
+  // SWA supplies identity to the API; the browser does not.
+  const headers: Record<string, string> = {};
   const canUpload =
     !!task &&
     !task.Deleting &&
@@ -351,23 +347,7 @@ export default function Day5Controls({
     <section className="detail-card">
       <h2>{task ? "Attachments & Deletion" : "Data Retention"}</h2>
 
-      {localDevelopment && (
-        <label style={{ display: "block", marginBottom: 16 }}>
-          <input
-            type="checkbox"
-            checked={isAdmin}
-            disabled={busy}
-            onChange={(event) => {
-              setIsAdmin(event.target.checked);
-              setPreview(null);
-              setConfirmed(false);
-              setError("");
-              setMessage("");
-            }}
-          />{" "}
-          Test as admin (local development)
-        </label>
-      )}
+
 
       {error && (
         <div className="error" role="alert" style={{ whiteSpace: "pre-wrap" }}>

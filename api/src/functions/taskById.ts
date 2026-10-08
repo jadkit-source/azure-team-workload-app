@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -161,5 +162,5 @@ app.http("taskById", {
     route: "tasks/{id}",
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: taskById
+    handler: withAuthentication(taskById)
 });

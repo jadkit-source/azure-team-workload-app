@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
 
@@ -103,5 +104,5 @@ export async function members(
 app.http("members", {
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: members
+    handler: withAuthentication(members)
 });
