@@ -2,6 +2,7 @@ import Day5Controls from "./Day5Controls";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import "./App.css";
+import { useAuth } from "./AuthGate";
 
 type Member = {
   memberId: string;
@@ -45,6 +46,7 @@ type HistoryEvent = {
 };
 
 function App() {
+  const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
 
@@ -71,6 +73,15 @@ function App() {
 
   const [noteDraft, setNoteDraft] =
     useState("");
+
+  const [descriptionDraft, setDescriptionDraft] =
+    useState("");
+
+  const [editingDescription, setEditingDescription] =
+    useState(false);
+
+  const [savingDescription, setSavingDescription] =
+    useState(false);
 
   const [savingNote, setSavingNote] =
     useState(false);
@@ -234,6 +245,8 @@ function App() {
         await historyResponse.json();
 
       setSelectedTask(taskData.task);
+      setDescriptionDraft(taskData.task.Description ?? "");
+      setEditingDescription(false);
 
       setNoteDraft(
         taskData.task.Note ?? ""
@@ -506,6 +519,56 @@ function App() {
       setCreating(false);
     }
   }
+
+  async function handleSaveDescription() {
+    if (!selectedTask || selectedTask.CreatedBy !== user.userId) {
+      return;
+    }
+
+    if (descriptionDraft.length > 4000) {
+      setError("Description must be at most 4000 characters.");
+      return;
+    }
+
+    try {
+      setSavingDescription(true);
+      setError("");
+
+      const response = await fetch(
+        `/api/tasks/${selectedTask.TaskId}/description`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "If-Match": selectedTask.etag,
+          },
+          body: JSON.stringify({
+            description: descriptionDraft,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(
+          body?.error ?? `Description update HTTP ${response.status}`
+        );
+      }
+
+      await loadTaskDetail(selectedTask.TaskId);
+      await loadData();
+      setEditingDescription(false);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to save Description."
+      );
+    } finally {
+      setSavingDescription(false);
+    }
+  }
+
 
   async function handleSaveNote() {
     if (!selectedTask) {
@@ -836,8 +899,9 @@ function App() {
                   </span>
 
                   <strong>
-                    {selectedTask.CreatedBy ??
-                      "-"}
+                    {selectedTask.CreatedBy
+                      ? getOwnerName(selectedTask.CreatedBy)
+                      : "-"}
                   </strong>
                 </div>
               </div>
@@ -845,11 +909,59 @@ function App() {
               <div className="description-block">
                 <h3>Description</h3>
 
-                <p>
-                  {selectedTask.Description ||
-                    "No description provided."}
-                </p>
+                {editingDescription ? (
+                  <div>
+                    <textarea
+                      value={descriptionDraft}
+                      onChange={(event) =>
+                        setDescriptionDraft(event.target.value)
+                      }
+                      maxLength={4000}
+                      rows={5}
+                      disabled={savingDescription}
+                      style={{ width: "100%", boxSizing: "border-box" }}
+                    />
+
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <button
+                        type="button"
+                        onClick={handleSaveDescription}
+                        disabled={savingDescription}
+                      >
+                        {savingDescription ? "Saving..." : "Save Description"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={savingDescription}
+                        onClick={() => {
+                          setDescriptionDraft(selectedTask.Description ?? "");
+                          setEditingDescription(false);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ whiteSpace: "pre-wrap" }}>
+                      {selectedTask.Description || "No description provided."}
+                    </p>
+
+                    {selectedTask.CreatedBy === user.userId &&
+                      !selectedTask.Archived && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingDescription(true)}
+                        >
+                          Edit Description
+                        </button>
+                      )}
+                  </div>
+                )}
               </div>
+
             </section>
 
             <Day5Controls
@@ -964,9 +1076,7 @@ function App() {
                             <div className="timeline-actor">
                               Changed by{" "}
                               <strong>
-                                {
-                                  historyEvent.changedBy
-                                }
+                                {getOwnerName(historyEvent.changedBy)}
                               </strong>
                             </div>
 

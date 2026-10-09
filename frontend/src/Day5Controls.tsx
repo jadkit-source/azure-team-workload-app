@@ -1,5 +1,5 @@
 import { useAuth } from "./AuthGate";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Task = {
   TaskId: string;
@@ -73,6 +73,27 @@ export default function Day5Controls({
 }: Props) {
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  const [activePreview, setActivePreview] = useState<{
+    attachmentId: string;
+    fileName: string;
+    url: string;
+    type: "image" | "pdf";
+  } | null>(null);
+
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const previewUrlRef = useRef<string | null>(null);
+
+  function closePreview() {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+
+    setActivePreview(null);
+  }
+
   const [file, setFile] = useState<File | null>(null);
   const [inputKey, setInputKey] = useState(0);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -130,11 +151,23 @@ export default function Day5Controls({
 
   useEffect(() => {
     setAttachments([]);
+
+    closePreview();
+
     setFile(null);
     setInputKey((value) => value + 1);
     setError("");
     setMessage("");
   }, [taskId]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!taskId) return;
@@ -182,6 +215,77 @@ export default function Day5Controls({
       );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function previewAttachment(attachment: Attachment) {
+    const extension = attachment.fileName
+      .split(".")
+      .pop()
+      ?.toLowerCase();
+
+    const imageTypes = ["jpg", "jpeg", "png", "gif", "webp"];
+
+    const type = imageTypes.includes(extension ?? "")
+      ? "image"
+      : extension === "pdf"
+        ? "pdf"
+        : null;
+
+    if (!type) {
+      setError("Preview is available for images and PDFs only.");
+      return;
+    }
+
+    setPreviewLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(attachment.downloadUrl, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Preview HTTP ${response.status}`);
+      }
+
+      const data = await response.blob();
+
+      const mimeType = type === "pdf"
+        ? "application/pdf"
+        : extension === "png"
+          ? "image/png"
+          : extension === "gif"
+            ? "image/gif"
+            : extension === "webp"
+              ? "image/webp"
+              : "image/jpeg";
+
+      const url = URL.createObjectURL(
+        new Blob([data], { type: mimeType })
+      );
+
+        if (previewUrlRef.current) {
+          URL.revokeObjectURL(previewUrlRef.current);
+        }
+
+        previewUrlRef.current = url;
+
+        setActivePreview({
+          attachmentId: attachment.attachmentId,
+          fileName: attachment.fileName,
+          url,
+          type,
+        });
+
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Unable to preview attachment."
+      );
+    } finally {
+      setPreviewLoading(false);
     }
   }
 
@@ -377,6 +481,16 @@ export default function Day5Controls({
                   {attachment.fileName}
                 </a>{" "}
                 — {sizeLabel(attachment.sizeBytes)}
+                {/\.(jpe?g|png|gif|webp|pdf)$/i.test(attachment.fileName) && (
+                  <button
+                    type="button"
+                    disabled={previewLoading}
+                    style={{ marginLeft: 12 }}
+                    onClick={() => void previewAttachment(attachment)}
+                  >
+                    Preview
+                  </button>
+                )}
                 {canRemove && (
                   <button
                     type="button"
@@ -390,6 +504,56 @@ export default function Day5Controls({
               </li>
             ))}
           </ul>
+
+          {previewLoading && <p>Loading preview...</p>}
+
+            {activePreview && (
+              <div className="description-block" style={{ marginTop: 16 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <h3>{activePreview.fileName}</h3>
+
+                  <button
+                    type="button"
+                    onClick={closePreview}
+                  >
+                    Close Preview
+                  </button>
+                </div>
+
+                {activePreview.type === "image" ? (
+                  <img
+                    src={activePreview.url}
+                    alt={activePreview.fileName}
+                    style={{
+                      display: "block",
+                      maxWidth: "100%",
+                      maxHeight: 350,
+                      objectFit: "contain",
+                      margin: "12px auto",
+                    }}
+                  />
+                ) : (
+                  <iframe
+                    src={activePreview.url}
+                    title={`Preview of ${activePreview.fileName}`}
+                    style={{
+                      width: "100%",
+                      height: 450,
+                      border: "1px solid #ddd",
+                      borderRadius: 6,
+                      marginTop: 12,
+                    }}
+                  />
+                )}
+              </div>
+            )}
 
           {canUpload && (
             <div

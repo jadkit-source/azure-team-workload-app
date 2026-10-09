@@ -64,3 +64,14 @@ export function canDeleteAttachment(
 export function canPurgeData(actor: Actor): boolean {
     return actor.isAdmin;
 }
+
+export function canEditDescription(
+    task: TaskPermissions,
+    actor: Actor
+): boolean {
+    return (
+        typeof task.CreatedBy === "string" &&
+        task.CreatedBy.length > 0 &&
+        task.CreatedBy === actor.id
+    );
+}

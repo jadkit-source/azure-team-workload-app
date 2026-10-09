@@ -6,7 +6,8 @@ const {
   canDeleteTask,
   canPurgeData,
   canUploadAttachment,
-  canDeleteAttachment
+  canDeleteAttachment,
+  canEditDescription
 } = require("../dist/src/shared/permissions.js");
 
 const now = Date.parse("2026-10-08T12:00:00Z");
@@ -35,6 +36,10 @@ function taskCreated(minutesAgo) {
     ).toISOString()
   };
 }
+
+// =====================================================
+// Task deletion permission tests
+// =====================================================
 
 test("Creator can delete within one hour", () => {
   assert.equal(
@@ -78,6 +83,10 @@ test("Deletion is denied at exactly one hour", () => {
   );
 });
 
+// =====================================================
+// Attachment permission tests
+// =====================================================
+
 test("Another member cannot upload attachments", () => {
   assert.equal(
     canUploadAttachment(taskCreated(30), otherMember),
@@ -99,8 +108,55 @@ test("Another member cannot delete attachments", () => {
   );
 });
 
+// =====================================================
+// Data retention permission tests
+// =====================================================
+
 test("Only admin can purge data", () => {
-  assert.equal(canPurgeData(creator), false);
-  assert.equal(canPurgeData(otherMember), false);
-  assert.equal(canPurgeData(admin), true);
+  assert.equal(
+    canPurgeData(creator),
+    false
+  );
+
+  assert.equal(
+    canPurgeData(otherMember),
+    false
+  );
+
+  assert.equal(
+    canPurgeData(admin),
+    true
+  );
+});
+
+// =====================================================
+// Description editing permission tests
+// =====================================================
+
+test("Creator can edit Description", () => {
+  assert.equal(
+    canEditDescription(taskCreated(30), creator),
+    true
+  );
+});
+
+test("Another member cannot edit Description", () => {
+  assert.equal(
+    canEditDescription(taskCreated(30), otherMember),
+    false
+  );
+});
+
+test("Admin cannot edit another creator's Description", () => {
+  assert.equal(
+    canEditDescription(taskCreated(30), admin),
+    false
+  );
+});
+
+test("Description editing is denied without a creator", () => {
+  assert.equal(
+    canEditDescription({ CreatedBy: "" }, creator),
+    false
+  );
 });
