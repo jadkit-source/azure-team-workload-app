@@ -22,11 +22,11 @@ export async function createTask(
 
     const connection = process.env.TABLES_CONNECTION_STRING;
 
-    if (connection !== "UseDevelopmentStorage=true") {
+    if (!connection?.trim()) {
         return {
             status: 503,
             jsonBody: {
-                error: "Local development only."
+                error: "Table Storage is not configured."
             }
         };
     }

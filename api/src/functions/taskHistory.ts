@@ -8,10 +8,10 @@ export async function taskHistory(
 ): Promise<HttpResponseInit> {
     const connection = process.env.TABLES_CONNECTION_STRING;
 
-    if (connection !== "UseDevelopmentStorage=true") {
+    if (!connection?.trim()) {
         return {
             status: 503,
-            jsonBody: { error: "Local development only." }
+            jsonBody: { error: "Table Storage is not configured." }
         };
     }
 

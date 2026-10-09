@@ -46,13 +46,10 @@ export async function deleteAttachment(
     });
 
     if (
-        process.env.TABLES_CONNECTION_STRING !==
-            "UseDevelopmentStorage=true" ||
-        process.env.BLOBS_CONNECTION_STRING !==
-            "UseDevelopmentStorage=true" ||
-        process.env.WEBSITE_INSTANCE_ID
+        !process.env.TABLES_CONNECTION_STRING?.trim() ||
+        !process.env.BLOBS_CONNECTION_STRING?.trim()
     ) {
-        return reply(503, "Local development only.");
+        return reply(503, "Storage is not configured.");
     }
 
     const taskId = request.params.id;

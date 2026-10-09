@@ -53,15 +53,12 @@ export async function tasks(
         process.env.TABLES_CONNECTION_STRING;
 
     // Local development only until authentication is implemented.
-    if (
-        connection !==
-        "UseDevelopmentStorage=true"
-    ) {
+    if (!connection?.trim()) {
         return {
             status: 503,
             jsonBody: {
                 error:
-                    "This endpoint currently supports local storage only."
+                    "Table Storage is not configured."
             }
         };
     }

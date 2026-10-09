@@ -36,13 +36,10 @@ function reply(
     };
 }
 
-function localOnly(): boolean {
-    return (
-        process.env.TABLES_CONNECTION_STRING ===
-            "UseDevelopmentStorage=true" &&
-        process.env.BLOBS_CONNECTION_STRING ===
-            "UseDevelopmentStorage=true" &&
-        !process.env.WEBSITE_INSTANCE_ID
+function storageConfigured(): boolean {
+    return Boolean(
+        process.env.TABLES_CONNECTION_STRING?.trim() &&
+        process.env.BLOBS_CONNECTION_STRING?.trim()
     );
 }
 
@@ -50,8 +47,8 @@ export async function listAttachments(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    if (!localOnly()) {
-        return reply(503, "Local development only.");
+    if (!storageConfigured()) {
+        return reply(503, "Storage is not configured.");
     }
 
     const taskId = request.params.id;
@@ -137,8 +134,8 @@ export async function downloadAttachment(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    if (!localOnly()) {
-        return reply(503, "Local development only.");
+    if (!storageConfigured()) {
+        return reply(503, "Storage is not configured.");
     }
 
     const taskId = request.params.id;

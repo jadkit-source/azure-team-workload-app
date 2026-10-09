@@ -14,8 +14,8 @@ export async function changePriority(
 
     const connection = process.env.TABLES_CONNECTION_STRING;
 
-    if (connection !== "UseDevelopmentStorage=true") {
-        return reply(503, "Local development only.");
+    if (!connection?.trim()) {
+        return reply(503, "Table Storage is not configured.");
     }
 
     const taskId = request.params.id;
