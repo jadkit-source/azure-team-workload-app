@@ -4,6 +4,8 @@ import {
     InvocationContext
 } from "@azure/functions";
 
+import { TableClient } from "@azure/data-tables";
+
 export type AuthenticatedActor = {
     id: string;
     displayName: string;
@@ -112,6 +114,60 @@ export function requireAdmin(
     }
 }
 
+export async function requireEnabledMember(
+    actor: AuthenticatedActor
+): Promise<void> {
+    const connection = process.env.TABLES_CONNECTION_STRING;
+
+    if (!connection?.trim()) {
+        throw new AuthorizationError(
+            503,
+            "Membership service is unavailable."
+        );
+    }
+
+    try {
+        const client = TableClient.fromConnectionString(
+            connection,
+            "Members"
+        );
+
+        const member = await client.getEntity(
+            "team:default",
+            actor.id
+        );
+
+        if (
+            member.MemberId !== actor.id ||
+            member.Enabled !== true
+        ) {
+            throw new AuthorizationError(
+                403,
+                "Your account is disabled or not registered."
+            );
+        }
+    } catch (error) {
+        if (error instanceof AuthorizationError) {
+            throw error;
+        }
+
+        if (
+            (error as { statusCode?: number }).statusCode === 404
+        ) {
+            throw new AuthorizationError(
+                403,
+                "Your account is disabled or not registered."
+            );
+        }
+
+        // Fail closed if storage cannot be checked.
+        throw new AuthorizationError(
+            503,
+            "Unable to verify membership."
+        );
+    }
+}
+
 type HttpHandler = (
     request: HttpRequest,
     context: InvocationContext
@@ -122,7 +178,8 @@ export function withAuthentication(
 ): HttpHandler {
     return async (request, context) => {
         try {
-            getAuthenticatedActor(request);
+            const actor = getAuthenticatedActor(request);
+            await requireEnabledMember(actor);
             return await handler(request, context);
         } catch (error) {
             if (error instanceof AuthorizationError) {

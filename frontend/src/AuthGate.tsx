@@ -35,6 +35,10 @@ export default function AuthGate({
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
 
+  const [accessStatus, setAccessStatus] = useState<
+    "checking" | "allowed" | "denied" | "unavailable"
+  >("checking");
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -96,6 +100,44 @@ export default function AuthGate({
     return () => controller.abort();
   }, [attempt]);
 
+  useEffect(() => {
+    if (!user) {
+      setAccessStatus("checking");
+      return;
+    }
+
+    const controller = new AbortController();
+
+    setAccessStatus("checking");
+
+    async function checkAccess() {
+      try {
+        const response = await fetch("/api/my-access", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (response.ok) {
+          setAccessStatus("allowed");
+        } else if (response.status === 403) {
+          setAccessStatus("denied");
+        } else {
+          setAccessStatus("unavailable");
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setAccessStatus("unavailable");
+        }
+      }
+    }
+
+    void checkAccess();
+
+    return () => controller.abort();
+  }, [user, attempt]);
+
   if (loading) {
     return <main className="app">Checking sign-in...</main>;
   }
@@ -124,6 +166,47 @@ export default function AuthGate({
           <a href="/.auth/login/aad?post_login_redirect_uri=%2F">
             Sign in with Microsoft
           </a>
+        </section>
+      </main>
+    );
+  }
+
+  if (accessStatus === "checking") {
+    return <main className="app">Checking application access...</main>;
+  }
+
+  if (accessStatus === "denied") {
+    return (
+      <main className="app">
+        <section className="detail-card">
+          <h1>Application access disabled</h1>
+          <p>
+            Your account is disabled or has not been registered.
+            Please contact your administrator to restore access.
+          </p>
+          <a href="/.auth/logout?post_logout_redirect_uri=%2F">
+            Sign out
+          </a>
+        </section>
+      </main>
+    );
+  }
+
+  if (accessStatus === "unavailable") {
+    return (
+      <main className="app">
+        <section className="detail-card">
+          <h1>Application temporarily unavailable</h1>
+          <p>
+            We couldn't verify your membership.
+            Please try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => setAttempt(value => value + 1)}
+          >
+            Retry
+          </button>
         </section>
       </main>
     );
