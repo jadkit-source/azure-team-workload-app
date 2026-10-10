@@ -919,3 +919,35 @@
     flex: 1;
   }
 }
+
+/* Day 8 - Wider Create Task form */
+
+.create-section {
+  width: 100%;
+  max-width: 800px;
+  box-sizing: border-box;
+}
+
+.create-section form {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.create-section input,
+.create-section select {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.create-section button[type="submit"] {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+@media (max-width: 600px) {
+  .create-section {
+    max-width: 100%;
+  }
+}
