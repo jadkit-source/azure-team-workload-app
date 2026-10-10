@@ -2,6 +2,8 @@ import Day5Controls from "./Day5Controls";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import "./App.css";
+import { useAuth } from "./AuthGate";
+import AdminMembers from "./AdminMembers";
 
 type Member = {
   memberId: string;
@@ -45,6 +47,9 @@ type HistoryEvent = {
 };
 
 function App() {
+  const { user } = useAuth();
+  const isAdmin = user.userRoles.includes("admin");
+  const [showAdminMembers, setShowAdminMembers] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
 
@@ -71,6 +76,15 @@ function App() {
 
   const [noteDraft, setNoteDraft] =
     useState("");
+
+  const [descriptionDraft, setDescriptionDraft] =
+    useState("");
+
+  const [editingDescription, setEditingDescription] =
+    useState(false);
+
+  const [savingDescription, setSavingDescription] =
+    useState(false);
 
   const [savingNote, setSavingNote] =
     useState(false);
@@ -234,6 +248,8 @@ function App() {
         await historyResponse.json();
 
       setSelectedTask(taskData.task);
+      setDescriptionDraft(taskData.task.Description ?? "");
+      setEditingDescription(false);
 
       setNoteDraft(
         taskData.task.Note ?? ""
@@ -507,6 +523,56 @@ function App() {
     }
   }
 
+  async function handleSaveDescription() {
+    if (!selectedTask || selectedTask.CreatedBy !== user.userId) {
+      return;
+    }
+
+    if (descriptionDraft.length > 4000) {
+      setError("Description must be at most 4000 characters.");
+      return;
+    }
+
+    try {
+      setSavingDescription(true);
+      setError("");
+
+      const response = await fetch(
+        `/api/tasks/${selectedTask.TaskId}/description`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "If-Match": selectedTask.etag,
+          },
+          body: JSON.stringify({
+            description: descriptionDraft,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(
+          body?.error ?? `Description update HTTP ${response.status}`
+        );
+      }
+
+      await loadTaskDetail(selectedTask.TaskId);
+      await loadData();
+      setEditingDescription(false);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to save Description."
+      );
+    } finally {
+      setSavingDescription(false);
+    }
+  }
+
+
   async function handleSaveNote() {
     if (!selectedTask) {
       return;
@@ -677,6 +743,18 @@ function App() {
         task.Archived
     ).length;
 
+  if (isAdmin && showAdminMembers) {
+    return (
+      <AdminMembers
+        currentUserId={user.userId}
+        onBack={() => {
+          setShowAdminMembers(false);
+          void loadData();
+        }}
+      />
+    );
+  }
+
   if (selectedTaskId) {
     return (
       <div className="app">
@@ -687,7 +765,7 @@ function App() {
               type="button"
               onClick={closeTaskDetail}
             >
-              ← Back to Tasks
+              â† Back to Tasks
             </button>
 
             <h1>Task Detail</h1>
@@ -836,8 +914,9 @@ function App() {
                   </span>
 
                   <strong>
-                    {selectedTask.CreatedBy ??
-                      "-"}
+                    {selectedTask.CreatedBy
+                      ? getOwnerName(selectedTask.CreatedBy)
+                      : "-"}
                   </strong>
                 </div>
               </div>
@@ -845,11 +924,59 @@ function App() {
               <div className="description-block">
                 <h3>Description</h3>
 
-                <p>
-                  {selectedTask.Description ||
-                    "No description provided."}
-                </p>
+                {editingDescription ? (
+                  <div>
+                    <textarea
+                      value={descriptionDraft}
+                      onChange={(event) =>
+                        setDescriptionDraft(event.target.value)
+                      }
+                      maxLength={4000}
+                      rows={5}
+                      disabled={savingDescription}
+                      style={{ width: "100%", boxSizing: "border-box" }}
+                    />
+
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <button
+                        type="button"
+                        onClick={handleSaveDescription}
+                        disabled={savingDescription}
+                      >
+                        {savingDescription ? "Saving..." : "Save Description"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={savingDescription}
+                        onClick={() => {
+                          setDescriptionDraft(selectedTask.Description ?? "");
+                          setEditingDescription(false);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ whiteSpace: "pre-wrap" }}>
+                      {selectedTask.Description || "No description provided."}
+                    </p>
+
+                    {selectedTask.CreatedBy === user.userId &&
+                      !selectedTask.Archived && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingDescription(true)}
+                        >
+                          Edit Description
+                        </button>
+                      )}
+                  </div>
+                )}
               </div>
+
             </section>
 
             <Day5Controls
@@ -964,9 +1091,7 @@ function App() {
                             <div className="timeline-actor">
                               Changed by{" "}
                               <strong>
-                                {
-                                  historyEvent.changedBy
-                                }
+                                {getOwnerName(historyEvent.changedBy)}
                               </strong>
                             </div>
 
@@ -997,7 +1122,7 @@ function App() {
                                     </span>
 
                                     <span className="change-arrow">
-                                      →
+                                      â†’
                                     </span>
 
                                     <span className="new-value">
@@ -1025,6 +1150,14 @@ function App() {
   return (
     <div className="app">
       <header className="header">
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowAdminMembers(true)}
+          >
+            Manage Members
+          </button>
+        )}
         <div>
           <h1>
             Team Workload
@@ -1390,7 +1523,7 @@ function App() {
                             task.TaskId
                           }
                         >
-                          <td>
+                          <td data-label="Task">
                             <button
                               type="button"
                               className="task-link"
@@ -1406,7 +1539,7 @@ function App() {
                             </button>
                           </td>
 
-                          <td>
+                          <td data-label="Owner">
                             <select
                               value={
                                 task.OwnerId
@@ -1448,7 +1581,7 @@ function App() {
                             </select>
                           </td>
 
-                          <td>
+                          <td data-label="Status">
                             <select
                               value={
                                 task.Status
@@ -1479,7 +1612,7 @@ function App() {
                             </select>
                           </td>
 
-                          <td className="note-preview-cell">
+                          <td className="note-preview-cell" data-label="Note">
                             {task.Note ? (
                               <span
                                 title={
@@ -1504,7 +1637,7 @@ function App() {
                             )}
                           </td>
 
-                          <td>
+                          <td data-label="In Scope">
                             <select
                               value={
                                 task.InScope
@@ -1535,7 +1668,7 @@ function App() {
                             </select>
                           </td>
 
-                          <td>
+                          <td data-label="Created">
                             {new Date(
                               task.CreatedAt
                             ).toLocaleDateString()}

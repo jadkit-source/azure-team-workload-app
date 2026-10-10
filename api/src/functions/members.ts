@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { TableClient } from "@azure/data-tables";
 
@@ -7,10 +8,10 @@ export async function members(
 ): Promise<HttpResponseInit> {
     const connection = process.env.TABLES_CONNECTION_STRING;
 
-    if (connection !== "UseDevelopmentStorage=true") {
+    if (!connection?.trim()) {
         return {
             status: 503,
-            jsonBody: { error: "Local development only." }
+            jsonBody: { error: "Table Storage is not configured." }
         };
     }
 
@@ -103,5 +104,5 @@ export async function members(
 app.http("members", {
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: members
+    handler: withAuthentication(members)
 });

@@ -1,4 +1,5 @@
 import { HttpRequest } from "@azure/functions";
+import { getAuthenticatedActor } from "./auth";
 
 export type Actor = {
     id: string;
@@ -11,26 +12,10 @@ export type TaskPermissions = {
     OwnerId?: unknown;
 };
 
-// Simulated identity for local Azurite testing.
-// Replace with verified authentication on Day 6.
+// Compatibility name for existing Day 5 handlers.
+// No simulated identity or caller-supplied admin role is used.
 export function getLocalActor(request: HttpRequest): Actor {
-    if (
-        process.env.TABLES_CONNECTION_STRING !==
-            "UseDevelopmentStorage=true" ||
-        process.env.WEBSITE_INSTANCE_ID
-    ) {
-        throw new Error(
-            "Local identity is unavailable outside local development."
-        );
-    }
-
-    return {
-        id:
-            request.headers.get("x-local-user")?.trim() ||
-            "local-developer",
-        isAdmin:
-            request.headers.get("x-local-admin") === "true"
-    };
+    return getAuthenticatedActor(request);
 }
 
 export function canDeleteTask(
@@ -78,4 +63,15 @@ export function canDeleteAttachment(
 
 export function canPurgeData(actor: Actor): boolean {
     return actor.isAdmin;
+}
+
+export function canEditDescription(
+    task: TaskPermissions,
+    actor: Actor
+): boolean {
+    return (
+        typeof task.CreatedBy === "string" &&
+        task.CreatedBy.length > 0 &&
+        task.CreatedBy === actor.id
+    );
 }

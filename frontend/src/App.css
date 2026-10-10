@@ -742,3 +742,212 @@
   color: #666;
   font-size: 14px;
 }
+
+/* Day 8 - Mobile task cards */
+@media (max-width: 600px) {
+  .app {
+    padding: 12px;
+  }
+
+  .table-wrapper {
+    overflow-x: visible;
+  }
+
+  .task-table {
+    min-width: 0;
+    width: 100%;
+    display: block;
+  }
+
+  .task-table thead {
+    display: none;
+  }
+
+  .task-table tbody {
+    display: grid;
+    gap: 14px;
+  }
+
+  .task-table tbody tr {
+    display: block;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+  }
+
+  .task-table td,
+  .task-table td:nth-child(n) {
+    display: grid;
+    grid-template-columns: 85px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    border-bottom: 1px solid #eee;
+  }
+
+  .task-table td:last-child {
+    border-bottom: none;
+  }
+
+  .task-table td::before {
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+  }
+
+  .task-table td select {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  .task-table .note-preview-cell span {
+    min-width: 0;
+    max-width: 100% !important;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .member-grid {
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 150px), 1fr)
+    );
+  }
+}
+
+/* Compact dashboard summaries on mobile */
+@media (max-width: 600px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .summary-card {
+    padding: 12px 6px;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .summary-number {
+    font-size: 26px;
+    margin-bottom: 4px;
+  }
+
+  .summary-card span {
+    font-size: 12px;
+  }
+}
+
+/* Day 8 — Admin Member Management */
+
+.admin-member-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.admin-member-card {
+  min-width: 0;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.admin-member-card h3 {
+  margin: 0 0 8px;
+}
+
+.admin-member-id {
+  color: #666;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-member-actions button {
+  min-height: 44px;
+  padding: 10px 16px;
+}
+
+.create-section form {
+  display: grid;
+  gap: 12px;
+  max-width: 540px;
+}
+
+.create-section form label {
+  display: block;
+  font-weight: 600;
+}
+
+.create-section form input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+  .admin-member-list {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-member-card {
+    padding: 16px;
+  }
+
+  .admin-member-actions button {
+    flex: 1;
+  }
+}
+
+/* Day 8 - Wider Create Task form */
+
+.create-section {
+  width: 100%;
+  max-width: 800px;
+  box-sizing: border-box;
+}
+
+.create-section form {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.create-section input,
+.create-section select {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.create-section button[type="submit"] {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+@media (max-width: 600px) {
+  .create-section {
+    max-width: 100%;
+  }
+}

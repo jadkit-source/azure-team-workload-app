@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -545,12 +546,12 @@ app.http("previewPurge", {
     route: "maintenance/purge/preview",
     methods: ["POST"],
     authLevel: "anonymous",
-    handler: previewPurge
+    handler: withAuthentication(previewPurge)
 });
 
 app.http("executePurge", {
     route: "maintenance/purge/execute",
     methods: ["POST"],
     authLevel: "anonymous",
-    handler: executePurge
+    handler: withAuthentication(executePurge)
 });

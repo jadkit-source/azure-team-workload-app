@@ -1,3 +1,4 @@
+import { getAuthenticatedActor, withAuthentication } from "../shared/auth";
 import {
     app, HttpRequest, HttpResponseInit, InvocationContext
 } from "@azure/functions";
@@ -13,8 +14,8 @@ export async function changeOwner(
 
     const connection = process.env.TABLES_CONNECTION_STRING;
 
-    if (connection !== "UseDevelopmentStorage=true") {
-        return reply(503, "Local development only.");
+    if (!connection?.trim()) {
+        return reply(503, "Table Storage is not configured.");
     }
 
     const taskId = request.params.id;
@@ -89,7 +90,7 @@ export async function changeOwner(
         }
 
         const now = new Date().toISOString();
-        const actor = "local-developer";
+        const actor = getAuthenticatedActor(request).id;
         const transaction = new TableTransaction();
 
         transaction.updateEntity({
@@ -147,5 +148,5 @@ app.http("changeOwner", {
     route: "tasks/{id}/owner",
     methods: ["PATCH"],
     authLevel: "anonymous",
-    handler: changeOwner
+    handler: withAuthentication(changeOwner)
 });

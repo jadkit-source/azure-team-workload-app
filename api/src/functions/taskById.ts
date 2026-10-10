@@ -1,3 +1,4 @@
+import { withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -46,14 +47,11 @@ export async function taskById(
     const connection =
         process.env.TABLES_CONNECTION_STRING;
 
-    if (
-        connection !==
-        "UseDevelopmentStorage=true"
-    ) {
+    if (!connection?.trim()) {
         return {
             status: 503,
             jsonBody: {
-                error: "Local development only."
+                error: "Table Storage is not configured."
             }
         };
     }
@@ -161,5 +159,5 @@ app.http("taskById", {
     route: "tasks/{id}",
     methods: ["GET"],
     authLevel: "anonymous",
-    handler: taskById
+    handler: withAuthentication(taskById)
 });

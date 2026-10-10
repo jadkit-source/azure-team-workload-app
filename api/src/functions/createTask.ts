@@ -1,3 +1,4 @@
+import { getAuthenticatedActor, withAuthentication } from "../shared/auth";
 import {
     app,
     HttpRequest,
@@ -21,11 +22,11 @@ export async function createTask(
 
     const connection = process.env.TABLES_CONNECTION_STRING;
 
-    if (connection !== "UseDevelopmentStorage=true") {
+    if (!connection?.trim()) {
         return {
             status: 503,
             jsonBody: {
-                error: "Local development only."
+                error: "Table Storage is not configured."
             }
         };
     }
@@ -118,8 +119,7 @@ export async function createTask(
     const taskId = randomUUID();
     const now = new Date().toISOString();
 
-    // Temporary identity until authentication is implemented.
-    const actor = "local-developer";
+    const actor = getAuthenticatedActor(request).id;
 
     const task = {
         partitionKey: "team:default",
@@ -238,5 +238,5 @@ app.http("createTask", {
     route: "tasks",
     methods: ["POST"],
     authLevel: "anonymous",
-    handler: createTask
+    handler: withAuthentication(createTask)
 });
