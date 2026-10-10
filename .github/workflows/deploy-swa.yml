@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/feature/day6-authentication'
+    if: github.ref == 'refs/heads/feature/day8-mobile-admin'
     runs-on: ubuntu-latest
 
     steps:
