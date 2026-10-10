@@ -1,4 +1,4 @@
-import Day5Controls from "./Day5Controls";
+﻿import Day5Controls from "./Day5Controls";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import "./App.css";
@@ -765,7 +765,7 @@ function App() {
               type="button"
               onClick={closeTaskDetail}
             >
-              â† Back to Tasks
+              {"\u2190"} Back to Tasks
             </button>
 
             <h1>Task Detail</h1>
@@ -1688,3 +1688,4 @@ function App() {
 }
 
 export default App;
+
