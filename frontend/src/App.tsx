@@ -1122,7 +1122,7 @@ function App() {
                                     </span>
 
                                     <span className="change-arrow">
-                                      â†’
+                                      {"\u2192"}
                                     </span>
 
                                     <span className="new-value">
