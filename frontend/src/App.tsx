@@ -682,8 +682,18 @@ function App() {
   }
 
   function formatChangeValue(
-    value: unknown
+    value: unknown,
+    field?: string
   ) {
+    // Owner changes store member IDs in the audit JSON.
+    // Resolve for display only; keep original audit records unchanged.
+    if (
+      field?.toLowerCase().includes("owner") &&
+      typeof value === "string" &&
+      value.trim()
+    ) {
+      return getOwnerName(value);
+    }
     if (
       value === null ||
       value === undefined ||
@@ -1119,7 +1129,8 @@ function App() {
 
                                     <span className="old-value">
                                       {formatChangeValue(
-                                        change.oldValue
+                                        change.oldValue,
+                                        field
                                       )}
                                     </span>
 
@@ -1129,7 +1140,8 @@ function App() {
 
                                     <span className="new-value">
                                       {formatChangeValue(
-                                        change.newValue
+                                        change.newValue,
+                                        field
                                       )}
                                     </span>
                                   </div>
@@ -1152,15 +1164,7 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setShowAdminMembers(true)}
-          >
-            Manage Members
-          </button>
-        )}
-        <div>
+         <div>
           <h1>
             Team Workload
           </h1>
@@ -1254,8 +1258,6 @@ function App() {
                 </div>
               ))}
           </section>
-
-          <Day5Controls onChanged={loadData} />
 
           <section className="create-section">
             <h2>
@@ -1697,6 +1699,21 @@ function App() {
               </div>
             )}
           </section>
+
+          {isAdmin && (
+            <section className="dashboard-admin-section" aria-label="Administration">
+              <h2>Administration</h2>
+              <div className="dashboard-admin-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminMembers(true)}
+                >
+                  Manage Members
+                </button>
+              </div>
+              <Day5Controls onChanged={loadData} />
+            </section>
+          )}
         </>
       )}
     </div>
