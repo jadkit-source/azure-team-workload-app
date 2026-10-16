@@ -9,6 +9,7 @@ type Member = {
   memberId: string;
   displayName: string;
   activeTasks: number;
+  doneLast30Days: number;
 };
 
 type InScopeValue = "Yes" | "No" | "Grey";
@@ -52,6 +53,7 @@ function App() {
   const [showAdminMembers, setShowAdminMembers] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [summary, setSummary] = useState({ active: 0, done: 0, archived: 0 });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -191,6 +193,7 @@ function App() {
 
       setMembers(membersData.members);
       setTasks(tasksData.tasks);
+      setSummary(tasksData.summary);
     } catch (err) {
       setError(
         err instanceof Error
@@ -679,8 +682,18 @@ function App() {
   }
 
   function formatChangeValue(
-    value: unknown
+    value: unknown,
+    field?: string
   ) {
+    // Owner changes store member IDs in the audit JSON.
+    // Resolve for display only; keep original audit records unchanged.
+    if (
+      field?.toLowerCase().includes("owner") &&
+      typeof value === "string" &&
+      value.trim()
+    ) {
+      return getOwnerName(value);
+    }
     if (
       value === null ||
       value === undefined ||
@@ -723,25 +736,24 @@ function App() {
     return `${cleanNote.slice(0, 60)}...`;
   }
 
-  const activeCount =
-    tasks.filter(
-      (task) =>
-        !task.Archived &&
-        task.Status !== "Done"
-    ).length;
+  // Server totals cover all retained tasks regardless of the selected view.
+  const activeCount = summary.active;
+  const doneCount = summary.done;
+  const archivedCount = summary.archived;
 
-  const doneCount =
-    tasks.filter(
-      (task) =>
-        !task.Archived &&
-        task.Status === "Done"
-    ).length;
+  const myTasksSelected = ownerFilter === user.userId;
 
-  const archivedCount =
-    tasks.filter(
-      (task) =>
-        task.Archived
-    ).length;
+  function toggleMyTasks() {
+    if (myTasksSelected) {
+      setOwnerFilter("All");
+    } else {
+      setOwnerFilter(user.userId);
+      setSearchText("");
+      setStatusFilter("All");
+      setInScopeFilter("All");
+      setShowArchived(false);
+    }
+  }
 
   if (isAdmin && showAdminMembers) {
     return (
@@ -1117,7 +1129,8 @@ function App() {
 
                                     <span className="old-value">
                                       {formatChangeValue(
-                                        change.oldValue
+                                        change.oldValue,
+                                        field
                                       )}
                                     </span>
 
@@ -1127,7 +1140,8 @@ function App() {
 
                                     <span className="new-value">
                                       {formatChangeValue(
-                                        change.newValue
+                                        change.newValue,
+                                        field
                                       )}
                                     </span>
                                   </div>
@@ -1150,15 +1164,7 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setShowAdminMembers(true)}
-          >
-            Manage Members
-          </button>
-        )}
-        <div>
+         <div>
           <h1>
             Team Workload
           </h1>
@@ -1237,20 +1243,21 @@ function App() {
                     }
                   </h2>
 
-                  <div className="task-count">
-                    {
-                      member.activeTasks
-                    }
+                  <div className="member-metrics">
+                    <div>
+                      <div className="task-count">{member.activeTasks}</div>
+                      <span>Active tasks</span>
+                    </div>
+                    <div>
+                      <div className="task-count completed-count">
+                        {member.doneLast30Days}
+                      </div>
+                      <span>Done (30d)</span>
+                    </div>
                   </div>
-
-                  <span>
-                    Active tasks
-                  </span>
                 </div>
               ))}
           </section>
-
-          <Day5Controls onChanged={loadData} />
 
           <section className="create-section">
             <h2>
@@ -1333,6 +1340,17 @@ function App() {
                 {tasks.length}
                 {" tasks"}
               </span>
+            </div>
+
+            <div className="task-quick-actions">
+              <button
+                type="button"
+                className={myTasksSelected ? "my-tasks-button selected" : "my-tasks-button"}
+                aria-pressed={myTasksSelected}
+                onClick={toggleMyTasks}
+              >
+                {myTasksSelected ? "Show All Tasks" : "My Tasks"}
+              </button>
             </div>
 
             <div className="filter-bar">
@@ -1681,6 +1699,21 @@ function App() {
               </div>
             )}
           </section>
+
+          {isAdmin && (
+            <section className="dashboard-admin-section" aria-label="Administration">
+              <h2>Administration</h2>
+              <div className="dashboard-admin-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminMembers(true)}
+                >
+                  Manage Members
+                </button>
+              </div>
+              <Day5Controls onChanged={loadData} />
+            </section>
+          )}
         </>
       )}
     </div>

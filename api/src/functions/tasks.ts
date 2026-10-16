@@ -71,80 +71,56 @@ export async function tasks(
                 "WorkItems"
             );
 
-        const page =
-            client
-                .listEntities({
-                    queryOptions: {
-                        filter:
-                            "PartitionKey eq 'team:default' and EntityType eq 'Task'"
-                    }
-                })
-                .byPage({
-                    maxPageSize: 100
-                });
-
-        const firstPage =
-            await page.next();
-
-        const rawTasks: TaskEntity[] =
-            firstPage.done
-                ? []
-                : (
-                    Array.from(
-                        firstPage.value
-                    ) as TaskEntity[]
-                );
-
         const includeArchived =
-    request.query.get("includeArchived") === "true";
+            request.query.get("includeArchived") === "true";
 
-        const tasks =
-            rawTasks
-                .map((task) => ({
-                ...task,
+        // Iterate over every Table Storage page, not just the first 100 rows.
+        // Dashboard totals must represent all retained tasks, regardless
+        // of the current table view or filters.
+        const tasks: TaskEntity[] = [];
+        const summary = { active: 0, done: 0, archived: 0 };
 
-                Description:
-                    task.Description ?? "",
+        for await (const task of client.listEntities<TaskEntity>({
+            queryOptions: {
+                filter: "PartitionKey eq 'team:default' and EntityType eq 'Task'"
+            }
+        })) {
+            const archived = task.Archived === true;
+            const status = task.Status ?? "Open";
 
-                Note:
-                    task.Note ?? "",
+            if (archived) {
+                summary.archived++;
+            } else if (status === "Done") {
+                summary.done++;
+            } else {
+                summary.active++;
+            }
 
-                OwnerId:
-                    task.OwnerId ?? "",
-
-                Status:
-                    task.Status ?? "Open",
-
-                Priority:
-                    task.Priority ?? "Normal",
-
-                InScope:
-                    task.InScope === "Yes" ||
-                    task.InScope === "No" ||
-                    task.InScope === "Grey"
-                        ? task.InScope
-                        : "Grey",
-
-                Archived:
-                    task.Archived ?? false
-            }))
-            .filter((task) =>
-                includeArchived ||
-                task.Archived !== true
-        );
+            if (includeArchived ? archived : !archived) {
+                tasks.push({
+                    ...task,
+                    Description: task.Description ?? "",
+                    Note: task.Note ?? "",
+                    OwnerId: task.OwnerId ?? "",
+                    Status: status,
+                    Priority: task.Priority ?? "Normal",
+                    InScope:
+                        task.InScope === "Yes" ||
+                        task.InScope === "No" ||
+                        task.InScope === "Grey"
+                            ? task.InScope : "Grey",
+                    Archived: archived
+                });
+            }
+        }
 
         return {
             status: 200,
             jsonBody: {
 
                 tasks,
-
-                continuationToken:
-                    firstPage.done
-                        ? null
-                        : firstPage.value
-                              .continuationToken
-                              ?? null
+                summary,
+                continuationToken: null
             }
         };
 
