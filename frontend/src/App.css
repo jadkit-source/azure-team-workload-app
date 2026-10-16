@@ -983,3 +983,24 @@
   .member-card { padding: 16px; }
   .member-metrics { gap: 10px; }
 }
+
+/* Low-frequency administrator tools below the task list */
+.dashboard-admin-section {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #ddd;
+}
+.dashboard-admin-section > h2 { margin: 0 0 16px; }
+.dashboard-admin-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.dashboard-admin-actions button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.dashboard-admin-section .detail-card { margin-bottom: 0; }
+@media (max-width: 600px) {
+  .dashboard-admin-actions button { width: 100%; }
+}
