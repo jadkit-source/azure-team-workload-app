@@ -1004,3 +1004,101 @@
 @media (max-width: 600px) {
   .dashboard-admin-actions button { width: 100%; }
 }
+
+
+/* Compact mobile dashboard: two members per row and three task rows. */
+.metric-label-mobile { display: none; }
+
+@media (max-width: 600px) {
+  .member-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .member-card {
+    min-width: 0;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .member-card h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    overflow-wrap: anywhere;
+  }
+
+  .member-metrics { gap: 6px; }
+  .member-metrics .task-count {
+    font-size: 26px;
+    line-height: 1.1;
+  }
+
+  .member-card .metric-label-desktop { display: none; }
+  .member-card .metric-label-mobile {
+    display: block;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .task-table tbody { gap: 10px; }
+  .task-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 8px;
+    padding: 12px;
+  }
+
+  .task-table td,
+  .task-table td:nth-child(n) {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border-bottom: 0;
+    overflow: hidden;
+  }
+
+  /* Row 1: task title. Row 2: editable owner/status. Row 3: note. */
+  .task-table td:nth-child(1),
+  .task-table td:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+  .task-table td:nth-child(2) { grid-column: 1; }
+  .task-table td:nth-child(3) { grid-column: 2; }
+
+  /* In Scope and Created remain available in task detail and desktop. */
+  .task-table td:nth-child(5),
+  .task-table td:nth-child(6) { display: none; }
+
+  .task-table td::before { display: none; }
+  .task-table td:nth-child(1) .task-link {
+    font-size: 15px;
+    line-height: 1.35;
+    max-height: none;
+    -webkit-line-clamp: 3;
+  }
+
+  .task-table td:nth-child(2) select,
+  .task-table td:nth-child(3) select {
+    width: 100%;
+    min-height: 40px;
+    padding: 7px 5px;
+    font-size: 13px;
+  }
+
+  .task-table td:nth-child(4) {
+    padding-top: 7px;
+    border-top: 1px solid #eee;
+  }
+  .task-table .note-preview-cell {
+    max-width: none;
+    font-size: 13px;
+  }
+  .task-table .note-preview-cell span {
+    max-width: 100% !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
