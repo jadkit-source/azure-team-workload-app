@@ -1246,13 +1246,15 @@ function App() {
                   <div className="member-metrics">
                     <div>
                       <div className="task-count">{member.activeTasks}</div>
-                      <span>Active tasks</span>
+                      <span className="metric-label-desktop">Active tasks</span>
+                      <span className="metric-label-mobile">Active</span>
                     </div>
                     <div>
                       <div className="task-count completed-count">
                         {member.doneLast30Days}
                       </div>
-                      <span>Done (30d)</span>
+                      <span className="metric-label-desktop">Done (30d)</span>
+                      <span className="metric-label-mobile">Done 30d</span>
                     </div>
                   </div>
                 </div>
